@@ -1,0 +1,17 @@
+.qmc-lvs { margin: 20px 0; }
+.qmc-lvs-group { margin-bottom: 15px; }
+.qmc-lvs-pill {
+    display:inline-block;
+    padding:8px 14px;
+    border:1px solid #ccc;
+    border-radius:6px;
+    margin-right:8px;
+    background:#fff;
+    text-decoration:none;
+    color:#333;
+}
+.qmc-lvs-pill.active {
+    background:#3183ff;
+    color:#fff;
+    border-color:#1b5bbf;
+}
