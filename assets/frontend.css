@@ -1,17 +1,65 @@
-.qmc-lvs { margin: 20px 0; }
-.qmc-lvs-group { margin-bottom: 15px; }
-.qmc-lvs-pill {
+/* Linked Variations nicer styling */
+.qmc-lvs {
+    margin:22px 0;
+    border:1px solid #e5e7eb;
+    border-radius:12px;
+    padding:14px;
+    background:#fff
+}
+.qmc-lvs .qmc-lvs-group{
+    margin-bottom:14px
+}
+.qmc-lvs .qmc-lvs-title{
+    font-weight:600;
+    margin-bottom:8px;
+    color:#111
+}
+.qmc-lvs .qmc-lvs-flex{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px
+}
+.qmc-lvs .qmc-pill{
     display:inline-block;
     padding:8px 14px;
-    border:1px solid #ccc;
-    border-radius:6px;
-    margin-right:8px;
+    border:1px solid #e5e7eb;
+    border-radius:999px;
     background:#fff;
     text-decoration:none;
-    color:#333;
+    color:#111;
+    transition:all .15s
 }
-.qmc-lvs-pill.active {
-    background:#3183ff;
+.qmc-lvs .qmc-pill:hover{
+    box-shadow:0 1px 0 rgba(0,0,0,.06);
+    transform:translateY(-1px)
+}
+.qmc-lvs .qmc-pill.active{
+    background:#2563eb;
     color:#fff;
-    border-color:#1b5bbf;
+    border-color:#2563eb
+}
+.qmc-lvs .qmc-pill.disabled{
+    opacity:.45;
+    pointer-events:none;
+    filter:grayscale(100%)
+}
+.qmc-lvs .qmc-lvs-seg{
+    display:flex;
+    border:1px solid #e5e7eb;
+    border-radius:10px;
+    overflow:hidden;
+    width:max-content
+}
+.qmc-lvs .qmc-lvs-seg a{
+    padding:8px 14px;
+    text-decoration:none;
+    color:#111;
+    border-right:1px solid #e5e7eb
+}
+.qmc-lvs .qmc-lvs-seg a:last-child{
+    border-right:none
+}
+.qmc-lvs .qmc-lvs-seg a.active{
+    background:#2563eb;
+    color:#fff
 }
