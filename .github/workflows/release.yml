@@ -30,10 +30,15 @@ jobs:
             exit 1
           fi
 
-      - name: Create zip
+      - name: Create zip with correct folder structure
         run: |
-          ZIP="linked-variations-simple-${{ steps.extract_version.outputs.VERSION }}.zip"
-          zip -r "$ZIP" . -x ".*" -x "*.md" -x ".github/*" -x "composer.*" -x "node_modules/*"
+          VERSION="${{ steps.extract_version.outputs.VERSION }}"
+          ZIP="linked-variations-simple-${VERSION}.zip"
+          mkdir build
+          rsync -av --exclude='.git' --exclude='.github' --exclude='.idea' --exclude='composer.*' --exclude='node_modules/*' --exclude='release.yml' ./ build/linked-variations-simple/
+          cd build
+          zip -r "../$ZIP" linked-variations-simple
+          cd ..
 
       - name: Create Release & Upload Zip
         uses: softprops/action-gh-release@v1
