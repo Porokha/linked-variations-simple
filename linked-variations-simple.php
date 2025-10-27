@@ -4,7 +4,7 @@
 Plugin Name: Linked Variations for Simple Products
 Plugin URI: http://URI_Of_Page_Describing_Plugin_and_Updates
 Description: Apple-style selectors for Color, Storage, and Condition that link between separate simple products.
-Version: 1.0.0
+Version: 1.0.1
 Author: Porokha
 Author URI: http://URI_Of_The_Plugin_Author
 License: GPL2
