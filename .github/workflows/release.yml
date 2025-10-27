@@ -1,55 +1,44 @@
-name: Build & Release plugin
+name: Build & Release Plugin
 
 on:
   push:
     tags:
-      - '*'          # tag like 1.0.3 or v1.0.3
+      - "*"
 
 permissions:
-  contents: write   # allow creating releases & uploading assets
+  contents: write
 
 jobs:
-  build-release:
+  build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      # Optional: validate the PHP version declared in header vs tag
-      - name: Extract version from tag
-        id: tag
+      - name: Set version from tag
+        id: extract_version
         run: |
-          ref="${GITHUB_REF##*/}"
-          echo "tag_name=$ref" >> $GITHUB_OUTPUT
+          VERSION="${GITHUB_REF#refs/tags/}"
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Ensure version in plugin header matches tag
+      - name: Confirm version matches plugin header
         run: |
-          TAG="${{ steps.tag.outputs.tag_name }}"
-          FILE="linked-variations-simple.php"
-          FILEVER=$(php -r '
-            $s=file_get_contents("'"$FILE"'");
-            if(preg_match("/^\\s*\\*\\s*Version:\\s*(.+)$/mi",$s,$m)) echo trim($m[1]);
-          ')
-          TAGNORM="${TAG#v}"
-          if [ "$TAGNORM" != "$FILEVER" ]; then
-            echo "Tag ($TAGNORM) != Version ($FILEVER). Bump header first."; exit 1;
+          TAG="${{ steps.extract_version.outputs.VERSION }}"
+          HEADER_VER=$(grep -oP "(?<=Version: ).*" linked-variations-simple.php)
+          if [ "$TAG" != "$HEADER_VER" ]; then
+            echo "❌ Version mismatch: tag=$TAG, header=$HEADER_VER"
+            exit 1
           fi
 
-      - name: Create clean ZIP (no nested folder)
+      - name: Create zip
         run: |
-          ZIP="linked-variations-simple-${{ steps.tag.outputs.tag_name }}.zip"
-          zip -r "$ZIP" . \
-            -x ".git/*" ".github/*" ".idea/*" "node_modules/*" "*.DS_Store" ".gitignore"
+          ZIP="linked-variations-simple-${{ steps.extract_version.outputs.VERSION }}.zip"
+          zip -r "$ZIP" . -x ".*" -x "*.md" -x ".github/*" -x "composer.*" -x "node_modules/*"
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+      - name: Create Release & Upload Zip
+        uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ steps.tag.outputs.tag_name }}
-          name: ${{ steps.tag.outputs.tag_name }}
-          body: |
-            Automatic release from CI.
-            • Tag: ${{ steps.tag.outputs.tag_name }}
-          draft: false
-          prerelease: false
           files: |
-            linked-variations-simple-${{ steps.tag.outputs.tag_name }}.zip
+            linked-variations-simple-${{ steps.extract_version.outputs.VERSION }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
