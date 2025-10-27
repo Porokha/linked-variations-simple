@@ -4,7 +4,7 @@
  * Plugin Name: Linked Variations for Simple Products
  * Plugin URI: https://Gstore.ge
  * Description: Apple-style selectors for Color, Storage, and Condition that link between separate simple products.
- * Version: 1.0.5
+ * Version: 1.0.6
  * Author: Porokha
  * Author URI: https://Gstore.ge
  * License: GPL2
