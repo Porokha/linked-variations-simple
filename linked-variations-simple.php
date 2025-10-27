@@ -1,14 +1,14 @@
 <?php
 
 /*
-Plugin Name: Linked Variations for Simple Products
-Plugin URI: https://Gstore.ge
-Description: Apple-style selectors for Color, Storage, and Condition that link between separate simple products.
-Version: 1.0.4
-Author: Porokha
-Author URI: https://Gstore.ge
-License: GPL2
-*/
+ * Plugin Name: Linked Variations for Simple Products
+ * Plugin URI: https://Gstore.ge
+ * Description: Apple-style selectors for Color, Storage, and Condition that link between separate simple products.
+ * Version: 1.0.5
+ * Author: Porokha
+ * Author URI: https://Gstore.ge
+ * License: GPL2
+ */
 
 // ===== GitHub Release Updater =====
 add_filter('pre_set_site_transient_update_plugins', function($transient){
