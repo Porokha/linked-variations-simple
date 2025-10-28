@@ -109,7 +109,7 @@ if (!defined('ABSPATH')) exit;
 // =====================================================
 // CONFIG
 // =====================================================
-define('QMC_LVS_VERSION', '2.0.0');
+define('QMC_LVS_VERSION', '3.0.1');
 define('QMC_LVS_DEBUG', true); // set to false to disable file logging
 
 // Option & Meta keys
