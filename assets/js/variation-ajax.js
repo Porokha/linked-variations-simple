@@ -1,33 +1,72 @@
 (function($){
-    function replaceHTML(res){
-        try {
-            if(res.permalink){ history.pushState({}, '', res.permalink); }
-            var $title = $('.product_title, .entry-title.product_title').first();
-            if($title.length && res.title_html){ $title.replaceWith(res.title_html); }
-            var $price = $('.summary .price').first();
-            if($price.length && res.price_html){ $price.html(res.price_html); }
-            var $gallery = $('.woocommerce-product-gallery').first();
-            if(!$gallery.length){ $gallery = $('.images').first(); }
-            if($gallery.length && res.gallery_html){ $gallery.html(res.gallery_html); }
-            var $summary = $('.summary').first();
-            var $form = $summary.find('form.cart').first();
-            if($form.length && res.cart_html){ $form.replaceWith(res.cart_html); }
-            else if($summary.length && res.cart_html){ $summary.append(res.cart_html); }
-            if(res.selectors_html){
-                var $old = $('.qmc-lvs').first();
-                if($old.length){ $old.replaceWith(res.selectors_html); }
+    function pickDominant(img, fallback){
+        try{
+            var c = document.createElement('canvas');
+            var w = c.width = Math.min(64, img.naturalWidth || 64);
+            var h = c.height = Math.min(64, img.naturalHeight || 64);
+            var ctx = c.getContext('2d');
+            ctx.drawImage(img,0,0,w,h);
+            var data = ctx.getImageData(0,0,w,h).data;
+            var r=0,g=0,b=0,count=0;
+            for(var i=0;i<data.length;i+=4){
+                r+=data[i]; g+=data[i+1]; b+=data[i+2]; count++;
             }
-        } catch(err){ console.error('[QMC-LVS] replace error', err); }
+            r=Math.round(r/count); g=Math.round(g/count); b=Math.round(b/count);
+            return 'rgb('+r+','+g+','+b+')';
+        }catch(e){
+            return fallback || '#3b82f6';
+        }
     }
-    $(document).on('click','a[data-qmc-link="1"]',function(e){
-        var pid = parseInt($(this).attr('data-product'),10);
-        if(!pid){ return; }
+
+    function enhanceSwatchOutlines(){
+        $('.qmc-colors .color-card .qmc-thumb img.qmc-mini').each(function(){
+            var img = this;
+            // if cdn blocks CORS, canvas will fail and we use existing --qmc-outline
+            var col = pickDominant(img, getComputedStyle(img.closest('.color-card')).getPropertyValue('--qmc-outline') || '#3b82f6');
+            img.closest('.color-card').style.setProperty('--qmc-outline', col);
+        });
+    }
+    document.addEventListener('DOMContentLoaded', enhanceSwatchOutlines);
+
+    $(document).on('click','.qmc-lvs a[data-qmc-link]',function(e){
+        var $link = $(this);
+        var id = parseInt($link.attr('data-product'),10);
+        if(!id){ return; }
         e.preventDefault();
-        var $wrap = $('.qmc-lvs').first(); $wrap.css('opacity', .6);
-        $.get(QMC_LVS.rest, { id: pid }).done(function(res){
-            if(res && !res.error){ replaceHTML(res); }
-            else { console.error('[QMC-LVS] REST error', res && res.error); }
-        }).fail(function(xhr){ console.error('[QMC-LVS] AJAX failed', xhr.status, xhr.responseText); })
-            .always(function(){ $wrap.css('opacity', 1); });
+        $.ajax({
+            url: (window.QMC_LVS ? QMC_LVS.rest : '') + '?id=' + id,
+            method:'GET',
+            timeout: 8000,
+            success: function(resp){
+                try{
+                    if(!resp || resp.error){ throw new Error('resp'); }
+                    // title (Woodmart/Elementor safe)
+                    var $t = $('.product_title, h1.product_title, .wd-product-title h1').first();
+                    if($t.length && resp.title){ $t.text(resp.title); }
+                    // price
+                    var $p = $('.summary .price, .entry-summary .price, .wd-single-price .price').first();
+                    if($p.length && resp.price){ $p.html(resp.price); }
+                    // cart ids (Add to Cart + Buy Now)
+                    var $form = $('form.cart').first();
+                    if($form.length){
+                        $form.attr('action', resp.permalink || $form.attr('action'));
+                        $form.find('button[name="add-to-cart"], input[name="add-to-cart"]').val(resp.cart_id);
+                        $('#wd-add-to-cart').val(resp.cart_id);
+                    }
+                    // push url without scroll
+                    if(resp.permalink){ window.history.replaceState({}, '', resp.permalink); }
+                    // mark current
+                    $('.qmc-lvs').attr('data-current-id', resp.id);
+                    enhanceSwatchOutlines();
+                } catch(err){
+                    if(resp && resp.permalink){ window.location.href = resp.permalink; }
+                    else { window.location.reload(); }
+                }
+            },
+            error: function(){
+                var url = $link.attr('href');
+                if(url){ window.location.href = url; } else { window.location.reload(); }
+            }
+        });
     });
 })(jQuery);
