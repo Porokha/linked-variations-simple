@@ -1,4 +1,4 @@
-/* v4.0.0 frontend */
+/* v4.0.1 frontend */
 .qmc-lvs{
     margin:16px 0 12px 0;
     padding:14px;
@@ -35,7 +35,6 @@
     background:#3b82f6;
     color:#fff
     }
-
 .qmc-lvs .qmc-pill{
     border:1px solid #e5e7eb;
     border-radius:10px;
@@ -51,7 +50,6 @@
     color:#fff;
     border-color:#111827
     }
-
 .qmc-lvs .color-card{
     display:inline-flex;
     align-items:center;
@@ -71,9 +69,10 @@
     max-height:56px;
     display:block
     }
-
 @media(max-width:768px){
-    .qmc-lvs{padding:12px}
+    .qmc-lvs{
+        padding:12px
+        }
     .qmc-lvs .qmc-pill{
         min-width:64px;
         padding:8px 12px
