@@ -2,7 +2,6 @@
 if (!current_user_can('manage_woocommerce')) { wp_die('Not allowed'); }
 $active = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'settings';
 $conds = get_option(QMC_LVS_OPT_CONDITIONS, ['NEW','Used (A)']);
-$logfile = plugin_dir_path(__FILE__).'../logs/debug.log';
 
 function qmc_lvs_tabs($active){
     $tabs = ['settings'=>'Settings','bulk'=>'Bulk Smart Sync','tools'=>'Tools','logs'=>'Logs'];

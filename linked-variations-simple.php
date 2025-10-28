@@ -4,7 +4,7 @@
  * Plugin Name: Linked Variations for Simple Products
  * Plugin URI: https://Gstore.ge
  * Description: Apple-style selectors for Color, Storage, and Condition that link between separate simple products.
- * Version: 3.1.0
+ * Version: 3.1.1
  * Author: Porokha
  * Author URI: https://Gstore.ge
  * License: GPL2
@@ -106,7 +106,7 @@ add_filter('http_request_args', function($args, $url){
 
 if (!defined('ABSPATH')) exit;
 
-define('QMC_LVS_VERSION', '3.0.0');
+define('QMC_LVS_VERSION', '3.0.1');
 define('QMC_LVS_DEBUG', true);
 define('QMC_LVS_OPT_CONDITIONS', 'qmc_lvs_conditions');
 define('QMC_LVS_META_MODEL', '_qmc_model');
@@ -114,13 +114,17 @@ define('QMC_LVS_META_STORAGE', '_qmc_storage');
 define('QMC_LVS_META_COLOR', '_qmc_color');
 define('QMC_LVS_META_COND', '_qmc_condition');
 
-function qmc_lvs_log($msg) {
+function qmc_lvs_log($msg, $ctx = []) {
 	if (!QMC_LVS_DEBUG) return;
 	$dir = plugin_dir_path(__FILE__) . 'logs/';
 	if (!file_exists($dir)) wp_mkdir_p($dir);
 	$file = $dir . 'debug.log';
-	$line = '['.date('Y-m-d H:i:s').'] ' . (is_scalar($msg) ? $msg : print_r($msg, true));
-	@file_put_contents($file, $line . "\n", FILE_APPEND);
+	$entry = [
+		't' => current_time('mysql'),
+		'msg' => is_scalar($msg) ? $msg : json_encode($msg),
+		'ctx' => $ctx
+	];
+	@file_put_contents($file, wp_json_encode($entry) . "\n", FILE_APPEND);
 }
 
 class QMC_Linked_Variations_Simple {
@@ -133,9 +137,9 @@ class QMC_Linked_Variations_Simple {
 
 		add_action('admin_post_qmc_lvs_save_settings', [$this, 'handle_save_settings']);
 		add_action('admin_post_qmc_lvs_run_bulk_sync', [$this, 'handle_bulk_sync']);
-		add_action('admin_post_qmc_lvs_clear_log', [$this, 'handle_clear_log']);
 		add_action('admin_post_qmc_lvs_export_csv', [$this, 'handle_export_csv']);
 		add_action('admin_post_qmc_lvs_reset_meta', [$this, 'handle_reset_meta']);
+		add_action('admin_post_qmc_lvs_clear_log', [$this, 'handle_clear_log']);
 
 		add_filter('bulk_actions-edit-product', [$this,'register_bulk_actions']);
 		add_filter('handle_bulk_actions-edit-product', [$this,'handle_bulk_actions'], 10, 3);
@@ -180,13 +184,14 @@ class QMC_Linked_Variations_Simple {
 		if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
 		if (!current_user_can('edit_post', $post_id)) return;
 		$model = isset($_POST['qmc_model']) ? sanitize_title(wp_unslash($_POST['qmc_model'])) : '';
-		$storage = isset($_POST['qmc_storage']) ? sanitize_text_field(wp_unslash($_POST['qmc_storage'])) : '';
+		$storage = isset($_POST['qmc_storage']) ? strtoupper(sanitize_text_field(wp_unslash($_POST['qmc_storage']))) : '';
 		$color = isset($_POST['qmc_color']) ? sanitize_text_field(wp_unslash($_POST['qmc_color'])) : '';
 		$cond = isset($_POST['qmc_condition']) ? sanitize_text_field(wp_unslash($_POST['qmc_condition'])) : '';
 		if ($model!=='') update_post_meta($post_id, QMC_LVS_META_MODEL, $model);
-		if ($storage!=='') update_post_meta($post_id, QMC_LVS_META_STORAGE, strtoupper($storage));
+		if ($storage!=='') update_post_meta($post_id, QMC_LVS_META_STORAGE, $storage);
 		if ($color!=='') update_post_meta($post_id, QMC_LVS_META_COLOR, $color);
 		if ($cond!=='') update_post_meta($post_id, QMC_LVS_META_COND, $cond);
+		qmc_lvs_log('save_meta', ['post'=>$post_id, 'model'=>$model,'storage'=>$storage,'color'=>$color,'cond'=>$cond]);
 	}
 	public function render_admin() { require plugin_dir_path(__FILE__) . 'admin/page-main.php'; }
 	public function handle_save_settings() {
@@ -196,6 +201,7 @@ class QMC_Linked_Variations_Simple {
 		$parts = array_filter(array_map('trim', explode(',', $raw)));
 		if (empty($parts)) $parts = ['NEW','Used (A)'];
 		update_option(QMC_LVS_OPT_CONDITIONS, $parts);
+		qmc_lvs_log('settings_saved', ['conditions'=>$parts]);
 		wp_safe_redirect(add_query_arg(['page'=>'qmc-lvs','tab'=>'settings','saved'=>1], admin_url('admin.php'))); exit;
 	}
 
@@ -230,6 +236,7 @@ class QMC_Linked_Variations_Simple {
 			$rows[]=$row;
 		}
 		update_option('qmc_lvs_last_report', $rows, false);
+		qmc_lvs_log('bulk_sync', ['page'=>$paged, 'updated'=>$updated, 'skipped'=>$skipped, 'cats'=>$cat_ids]);
 
 		$next = ($q->max_num_pages > $paged) ? $paged+1 : 0;
 		$redirect = add_query_arg(['page'=>'qmc-lvs','tab'=>'bulk','updated_count'=>$updated,'skipped_count'=>$skipped,'next_page'=>$next,'cats'=>implode(',',$cat_ids)], admin_url('admin.php'));
@@ -240,6 +247,7 @@ class QMC_Linked_Variations_Simple {
 		if (!current_user_can('manage_woocommerce')) wp_die('Not allowed');
 		check_admin_referer('qmc_lvs_export_csv');
 		$rows = get_option('qmc_lvs_last_report', []);
+		qmc_lvs_log('export_csv', ['rows'=>count($rows)]);
 		header('Content-Type: text/csv');
 		header('Content-Disposition: attachment; filename="qmc-lvs-report.csv"');
 		$out = fopen('php://output','w');
@@ -263,11 +271,19 @@ class QMC_Linked_Variations_Simple {
 				delete_post_meta($pid, QMC_LVS_META_COLOR);
 				delete_post_meta($pid, QMC_LVS_META_COND);
 				$cleared++;
-			} else {
-				// Soft: no-op placeholder, keep safe
 			}
 		}
+		qmc_lvs_log('reset_meta', ['mode'=>$mode, 'cleared'=>$cleared]);
 		wp_safe_redirect(add_query_arg(['page'=>'qmc-lvs','tab'=>'tools','reset_done'=>$cleared], admin_url('admin.php'))); exit;
+	}
+
+	public function handle_clear_log() {
+		if (!current_user_can('manage_woocommerce')) wp_die('Not allowed');
+		check_admin_referer('qmc_lvs_clear_log');
+		$file = plugin_dir_path(__FILE__) . 'logs/debug.log';
+		if (file_exists($file)) unlink($file);
+		qmc_lvs_log('log_cleared');
+		wp_safe_redirect(add_query_arg(['page'=>'qmc-lvs','tab'=>'logs','cleared'=>1], admin_url('admin.php'))); exit;
 	}
 
 	public function register_bulk_actions($actions){
@@ -278,7 +294,7 @@ class QMC_Linked_Variations_Simple {
 	public function handle_bulk_actions($redirect, $doaction, $ids){
 		if ($doaction==='qmc_lvs_apply_model'){
 			$model = isset($_REQUEST['qmc_lvs_model_bulk']) ? sanitize_title($_REQUEST['qmc_lvs_model_bulk']) : '';
-			if ($model){ foreach($ids as $pid){ update_post_meta($pid, QMC_LVS_META_MODEL, $model); } $redirect = add_query_arg('qmc_lvs_bulk_msg', count($ids).' updated', $redirect); }
+			if ($model){ foreach($ids as $pid){ update_post_meta($pid, QMC_LVS_META_MODEL, $model); } qmc_lvs_log('bulk_apply_model',['count'=>count($ids),'model'=>$model]); $redirect = add_query_arg('qmc_lvs_bulk_msg', count($ids).' updated', $redirect); }
 		} elseif ($doaction==='qmc_lvs_clear_lvs'){
 			foreach($ids as $pid){
 				delete_post_meta($pid, QMC_LVS_META_MODEL);
@@ -286,6 +302,7 @@ class QMC_Linked_Variations_Simple {
 				delete_post_meta($pid, QMC_LVS_META_COLOR);
 				delete_post_meta($pid, QMC_LVS_META_COND);
 			}
+			qmc_lvs_log('bulk_clear', ['count'=>count($ids)]);
 			$redirect = add_query_arg('qmc_lvs_bulk_msg', count($ids).' cleared', $redirect);
 		}
 		return $redirect;
@@ -294,7 +311,10 @@ class QMC_Linked_Variations_Simple {
 	public function load_assets() {
 		wp_enqueue_style('qmc-lvs', plugin_dir_url(__FILE__) . 'assets/frontend.css', [], QMC_LVS_VERSION);
 		wp_enqueue_script('qmc-lvs', plugin_dir_url(__FILE__) . 'assets/js/variation-ajax.js', ['jquery'], QMC_LVS_VERSION, true);
-		wp_localize_script('qmc-lvs', 'QMC_LVS', ['rest'=>esc_url_raw(rest_url('qmc-lvs/v1/switch')),'stayInPlace'=>true]);
+		wp_localize_script('qmc-lvs', 'QMC_LVS', [
+			'rest'=>esc_url_raw(rest_url('qmc-lvs/v1/switch')),
+			'stayInPlace'=>true
+		]);
 	}
 
 	public function render_selectors() {
@@ -320,10 +340,11 @@ class QMC_Linked_Variations_Simple {
 			$sib = wc_get_product($sid);
 			$in_stock = $sib ? $sib->is_in_stock() : false;
 			$price = $sib ? floatval( wc_get_price_to_display($sib) ) : 0;
-			if ($s['storage']===$storage && $s['cond']===$cond) $by_color[$s['color']] = ['id'=>$sid,'thumb'=>$this->thumb($sid),'stock'=>$in_stock,'price'=>$price];
-			if ($s['color']===$color && $s['cond']===$cond) $by_storage[$s['storage']] = ['id'=>$sid,'stock'=>$in_stock,'price'=>$price];
 			if ($s['color']===$color && $s['storage']===$storage) $by_cond[$s['cond']] = ['id'=>$sid,'stock'=>$in_stock,'price'=>$price];
+			if ($s['color']===$color && $s['cond']===$cond) $by_storage[$s['storage']] = ['id'=>$sid,'stock'=>$in_stock,'price'=>$price];
+			if ($s['storage']===$storage && $s['cond']===$cond) $by_color[$s['color']] = ['id'=>$sid,'thumb'=>$this->thumb($sid),'stock'=>$in_stock,'price'=>$price];
 		}
+
 		$storages = array_keys($by_storage);
 		usort($storages, function($a,$b){
 			$map=['KB'=>1,'MB'=>2,'GB'=>3,'TB'=>4];
@@ -335,22 +356,14 @@ class QMC_Linked_Variations_Simple {
 
 		echo '<div class="qmc-lvs" data-current-id="'.esc_attr($post_id).'">';
 
-		echo '<div class="qmc-lvs-group"><div class="qmc-lvs-title">Color</div><div class="qmc-lvs-flex">';
-		$color_keys = array_unique(array_merge(array_keys($by_color), [$color]));
-		foreach ($color_keys as $label) {
-			if (!$label) continue;
-			$data = isset($by_color[$label]) ? $by_color[$label] : null;
-			$is_current = (strcasecmp($label,$color)===0);
-			$delta = $data ? ($data['price'] - $current_price) : 0;
-			$badge = $data ? ($delta>0?'+'.wc_price($delta):($delta<0?wc_price($delta):'')) : '';
-			$classes = 'qmc-card'.($is_current?' active':'').(($data && !$data['stock'])?' disabled':'');
+		echo '<div class="qmc-lvs-group"><div class="qmc-lvs-title">Condition</div><div class="qmc-lvs-seg">';
+		foreach ($cond_list as $label) {
+			$data = isset($by_cond[$label]) ? $by_cond[$label] : null;
+			$is_current = (strcasecmp($label, $cond)===0);
 			$url = $data ? get_permalink($data['id']) : '#';
-			$thumb = $data ? $data['thumb'] : $this->thumb($post_id);
-			echo '<a class="'.esc_attr($classes).'" href="'.esc_url($url).'" data-qmc-link="1" data-product="'.esc_attr($data['id'] ?? 0).'">';
-			echo '<span class="qmc-thumb">'.$thumb.'</span><span class="qmc-label">'.esc_html($label).'</span>';
-			if ($badge) echo '<span class="qmc-badge">'.$badge.'</span>';
-			if ($data && !$data['stock']) echo '<span class="qmc-oos">Sold out</span>';
-			echo '</a>';
+			$class = $is_current ? 'active' : '';
+			$attr = ($data || $is_current) ? '' : ' aria-disabled="true" style="opacity:.5;pointer-events:none"';
+			echo '<a class="'.esc_attr($class).'" href="'.esc_url($url).'" data-qmc-link="1" data-product="'.esc_attr($data['id'] ?? 0).'"'.$attr.'>'.esc_html($label).'</a>';
 		}
 		echo '</div></div>';
 
@@ -371,20 +384,25 @@ class QMC_Linked_Variations_Simple {
 		}
 		echo '</div></div>';
 
-		$cond_list = get_option(QMC_LVS_OPT_CONDITIONS, ['NEW','Used (A)']);
-		$has_multi_cond = count(array_unique(array_keys($by_cond)))>0;
-		if ($has_multi_cond){
-			echo '<div class="qmc-lvs-group"><div class="qmc-lvs-title">Condition</div><div class="qmc-lvs-seg">';
-			foreach ($cond_list as $label) {
-				$data = isset($by_cond[$label]) ? $by_cond[$label] : null;
-				$is_current = (strcasecmp($label, $cond)===0);
-				$url = $data ? get_permalink($data['id']) : '#';
-				$class = $is_current ? 'active' : '';
-				$attr = ($data || $is_current) ? '' : ' aria-disabled="true" style="opacity:.5;pointer-events:none"';
-				echo '<a class="'.esc_attr($class).'" href="'.esc_url($url).'" data-qmc-link="1" data-product="'.esc_attr($data['id'] ?? 0).'"'.$attr.'>'.esc_html($label).'</a>';
-			}
-			echo '</div></div>';
+		echo '<div class="qmc-lvs-group"><div class="qmc-lvs-title">Color</div><div class="qmc-lvs-flex qmc-colors">';
+		$color_keys = array_unique(array_merge(array_keys($by_color), [$color]));
+		foreach ($color_keys as $label) {
+			if (!$label) continue;
+			$data = isset($by_color[$label]) ? $by_color[$label] : null;
+			if (!$data && strcasecmp($label, $color)!==0) continue;
+			$is_current = (strcasecmp($label,$color)===0);
+			$delta = $data ? ($data['price'] - $current_price) : 0;
+			$badge = $data ? ($delta>0?'+'.wc_price($delta):($delta<0?wc_price($delta):'')) : '';
+			$classes = 'color-card'.($is_current?' is-active':'').(($data && !$data['stock'])?' is-disabled':'');
+			$url = $data ? get_permalink($data['id']) : '#';
+			$thumb = $data ? $data['thumb'] : $this->thumb($post_id);
+			echo '<a class="'.esc_attr($classes).'" href="'.esc_url($url).'" data-qmc-link="1" data-product="'.esc_attr($data['id'] ?? 0).'">';
+			echo '<span class="qmc-thumb">'.$thumb.'</span>';
+			if ($badge) echo '<span class="qmc-badge">'.$badge.'</span>';
+			echo '</a>';
 		}
+		echo '</div></div>';
+
 		echo '</div>';
 	}
 
@@ -395,8 +413,15 @@ class QMC_Linked_Variations_Simple {
 	}
 
 	private function get_siblings($model_slug) {
-		$q = new WP_Query(['post_type'=>'product','post_status'=>'publish','fields'=>'ids','posts_per_page'=>-1,'meta_query'=>[['key'=>QMC_LVS_META_MODEL,'value'=>$model_slug]]]);
-		$out=[]; foreach($q->posts as $pid){ $out[$pid]=['storage'=>get_post_meta($pid,QMC_LVS_META_STORAGE,true),'color'=>get_post_meta($pid,QMC_LVS_META_COLOR,true),'cond'=>get_post_meta($pid,QMC_LVS_META_COND,true)]; }
+		$q = new WP_Query([
+			'post_type'=>'product','post_status'=>'publish','fields'=>'ids','posts_per_page'=>-1,
+			'meta_query'=>[['key'=>QMC_LVS_META_MODEL,'value'=>$model_slug]]
+		]);
+		$out=[]; foreach($q->posts as $pid){ $out[$pid]=[
+			'storage'=>get_post_meta($pid, QMC_LVS_META_STORAGE,true),
+			'color'=>get_post_meta($pid, QMC_LVS_META_COLOR,true),
+			'cond'=>get_post_meta($pid, QMC_LVS_META_COND,true)
+		]; }
 		return $out;
 	}
 
@@ -412,7 +437,11 @@ class QMC_Linked_Variations_Simple {
 		ob_start(); $thumb = get_post_thumbnail_id($pid); if ($thumb) echo wp_get_attachment_image($thumb, 'large', false, ['class'=>'qmc-main-img']); $gallery_html = ob_get_clean();
 		ob_start(); $GLOBALS['post']=get_post($pid); setup_postdata($GLOBALS['post']); wc_get_template('single-product/add-to-cart/simple.php', ['product'=>$product]); $cart_html = ob_get_clean(); wp_reset_postdata();
 
-		return ['id'=>$pid,'permalink'=>get_permalink($pid),'title_html'=>$title_html,'price_html'=>$price_html,'gallery_html'=>$gallery_html,'cart_html'=>$cart_html,'sku'=>$product->get_sku(),'in_stock'=>$product->is_in_stock()];
+		ob_start();
+		$this->render_selectors();
+		$selectors_html = ob_get_clean();
+
+		return ['id'=>$pid,'permalink'=>get_permalink($pid),'title_html'=>$title_html,'price_html'=>$price_html,'gallery_html'=>$gallery_html,'cart_html'=>$cart_html,'selectors_html'=>$selectors_html,'sku'=>$product->get_sku(),'in_stock'=>$product->is_in_stock()];
 	}
 
 	private function parse_from_slug($slug) {
