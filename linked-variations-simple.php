@@ -4,7 +4,7 @@
  * Plugin Name: Linked Variations for Simple Products
  * Plugin URI: https://Gstore.ge
  * Description: Apple-style selectors for Color, Storage, and Condition that link between separate simple products.
- * Version: 3.1.1
+ * Version: 3.1.2
  * Author: Porokha
  * Author URI: https://Gstore.ge
  * License: GPL2
@@ -106,7 +106,7 @@ add_filter('http_request_args', function($args, $url){
 
 if (!defined('ABSPATH')) exit;
 
-define('QMC_LVS_VERSION', '3.0.1');
+define('QMC_LVS_VERSION', '3.0.2');
 define('QMC_LVS_DEBUG', true);
 define('QMC_LVS_OPT_CONDITIONS', 'qmc_lvs_conditions');
 define('QMC_LVS_META_MODEL', '_qmc_model');
@@ -212,7 +212,10 @@ class QMC_Linked_Variations_Simple {
 		$per_page = 400;
 		$cat_ids = isset($_POST['qmc_lvs_cat_ids']) ? array_map('intval', (array)$_POST['qmc_lvs_cat_ids']) : [];
 		$tax_query = [];
-		if (!empty($cat_ids)) { $tax_query[] = ['taxonomy'=>'product_cat','field'=>'term_id','terms'=>$cat_ids]; }
+		if (!empty($cat_ids)) {$tax_query[] = ['taxonomy'=>'product_cat','field'=>'term_id','terms'=>$cat_ids];}
+		?>
+
+		<?php
 		$q = new WP_Query(['post_type'=>'product','post_status'=>'publish','fields'=>'ids','posts_per_page'=>$per_page,'paged'=>$paged,'tax_query'=>$tax_query]);
 
 		$updated=0; $skipped=0; $rows=[];
@@ -332,17 +335,15 @@ class QMC_Linked_Variations_Simple {
 		$siblings = $this->get_siblings($model);
 		if (!$siblings) return;
 
-		$current_price = floatval( wc_get_price_to_display($product) );
 		$cond_list = get_option(QMC_LVS_OPT_CONDITIONS, ['NEW','Used (A)']);
 
 		$by_color=[]; $by_storage=[]; $by_cond=[];
 		foreach ($siblings as $sid=>$s) {
 			$sib = wc_get_product($sid);
 			$in_stock = $sib ? $sib->is_in_stock() : false;
-			$price = $sib ? floatval( wc_get_price_to_display($sib) ) : 0;
-			if ($s['color']===$color && $s['storage']===$storage) $by_cond[$s['cond']] = ['id'=>$sid,'stock'=>$in_stock,'price'=>$price];
-			if ($s['color']===$color && $s['cond']===$cond) $by_storage[$s['storage']] = ['id'=>$sid,'stock'=>$in_stock,'price'=>$price];
-			if ($s['storage']===$storage && $s['cond']===$cond) $by_color[$s['color']] = ['id'=>$sid,'thumb'=>$this->thumb($sid),'stock'=>$in_stock,'price'=>$price];
+			if ($s['color']===$color && $s['storage']===$storage) $by_cond[$s['cond']] = ['id'=>$sid,'stock'=>$in_stock];
+			if ($s['color']===$color && $s['cond']===$cond) $by_storage[$s['storage']] = ['id'=>$sid,'stock'=>$in_stock];
+			if ($s['storage']===$storage && $s['cond']===$cond) $by_color[$s['color']] = ['id'=>$sid,'thumb'=>$this->thumb($sid),'stock'=>$in_stock];
 		}
 
 		$storages = array_keys($by_storage);
@@ -367,19 +368,15 @@ class QMC_Linked_Variations_Simple {
 		}
 		echo '</div></div>';
 
-		echo '<div class="qmc-lvs-group"><div class="qmc-lvs-title">Storage</div><div class="qmc-lvs-flex">';
+		echo '<div class="qmc-lvs-group"><div class="qmc-lvs-title">Storage</div><div class="qmc-lvs-flex qmc-storage">';
 		if (empty($storages)) $storages = [$storage];
 		foreach ($storages as $st) {
 			$data = isset($by_storage[$st]) ? $by_storage[$st] : null;
 			$is_current = (strcasecmp($st,$storage)===0);
-			$delta = $data ? ($data['price'] - $current_price) : 0;
-			$badge = $data ? ($delta>0?'+'.wc_price($delta):($delta<0?wc_price($delta):'')) : '';
 			$classes = 'qmc-pill'.($is_current?' active':'').(($data && !$data['stock'])?' disabled':'');
 			$url = $data ? get_permalink($data['id']) : '#';
 			echo '<a class="'.esc_attr($classes).'" href="'.esc_url($url).'" data-qmc-link="1" data-product="'.esc_attr($data['id'] ?? 0).'">';
 			echo esc_html($st);
-			if ($badge) echo ' <span class="qmc-badge">'.$badge.'</span>';
-			if ($data && !$data['stock']) echo ' <span class="qmc-oos">Sold out</span>';
 			echo '</a>';
 		}
 		echo '</div></div>';
@@ -391,19 +388,41 @@ class QMC_Linked_Variations_Simple {
 			$data = isset($by_color[$label]) ? $by_color[$label] : null;
 			if (!$data && strcasecmp($label, $color)!==0) continue;
 			$is_current = (strcasecmp($label,$color)===0);
-			$delta = $data ? ($data['price'] - $current_price) : 0;
-			$badge = $data ? ($delta>0?'+'.wc_price($delta):($delta<0?wc_price($delta):'')) : '';
 			$classes = 'color-card'.($is_current?' is-active':'').(($data && !$data['stock'])?' is-disabled':'');
 			$url = $data ? get_permalink($data['id']) : '#';
 			$thumb = $data ? $data['thumb'] : $this->thumb($post_id);
-			echo '<a class="'.esc_attr($classes).'" href="'.esc_url($url).'" data-qmc-link="1" data-product="'.esc_attr($data['id'] ?? 0).'">';
+			$outline = $this->color_hex_from_label($label);
+			echo '<a class="'.esc_attr($classes).'" href="'.esc_url($url).'" data-qmc-link="1" data-product="'.esc_attr($data['id'] ?? 0).'" style="--qmc-outline: '.esc_attr($outline).'">';
 			echo '<span class="qmc-thumb">'.$thumb.'</span>';
-			if ($badge) echo '<span class="qmc-badge">'.$badge.'</span>';
 			echo '</a>';
 		}
 		echo '</div></div>';
 
 		echo '</div>';
+	}
+
+	private function color_hex_from_label($label){
+		$l = strtolower($label);
+		$map = [
+			'black' => '#1f2937',
+			'midnight' => '#1f2937',
+			'white' => '#e5e7eb',
+			'starlight' => '#e5dcc9',
+			'gold' => '#e6c65b',
+			'blue' => '#2c3f69',
+			'desert' => '#c6b79c',
+			'titanium' => '#bfc6cd',
+			'pink' => '#f1b0c9',
+			'silver' => '#d4d4d8',
+			'gray' => '#9ca3af',
+			'grey' => '#9ca3af',
+			'green' => '#3f7f6f',
+			'purple' => '#6d5bd0'
+		];
+		foreach($map as $key=>$hex){
+			if (strpos($l,$key)!==false) return $hex;
+		}
+		return '#2563eb';
 	}
 
 	private function thumb($pid){
@@ -426,6 +445,14 @@ class QMC_Linked_Variations_Simple {
 	}
 
 	public function rest_switch_product($req){
+		if ( ! class_exists('WooCommerce') ) {
+			qmc_lvs_log('ajax_error', ['reason'=>'woocommerce_missing']);
+			return new WP_REST_Response(['error'=>'WooCommerce not loaded'], 500);
+		}
+		if ( ! function_exists('wc_get_price_html') ) {
+			include_once WC_ABSPATH . 'includes/wc-template-functions.php';
+		}
+
 		$pid = absint($req->get_param('id'));
 		if (!$pid) return new WP_Error('no_id','Missing id', ['status'=>400]);
 		$post = get_post($pid);
@@ -440,6 +467,8 @@ class QMC_Linked_Variations_Simple {
 		ob_start();
 		$this->render_selectors();
 		$selectors_html = ob_get_clean();
+
+		qmc_lvs_log('ajax_switch', ['id'=>$pid, 'title'=>get_the_title($pid)]);
 
 		return ['id'=>$pid,'permalink'=>get_permalink($pid),'title_html'=>$title_html,'price_html'=>$price_html,'gallery_html'=>$gallery_html,'cart_html'=>$cart_html,'selectors_html'=>$selectors_html,'sku'=>$product->get_sku(),'in_stock'=>$product->is_in_stock()];
 	}

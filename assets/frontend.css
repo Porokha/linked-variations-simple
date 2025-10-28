@@ -1,4 +1,4 @@
-/* v3.1.1 UI */
+/* v3.1.2 UI */
 .qmc-lvs{
     margin:18px 0;
     border:1px solid #e5e7eb;
@@ -8,65 +8,66 @@
 }
 .qmc-lvs .qmc-lvs-group{
     margin-bottom:14px
-}
+    }
 .qmc-lvs .qmc-lvs-title{
     font-weight:600;
     margin-bottom:8px;
     color:#111
-}
+    }
 .qmc-lvs .qmc-lvs-flex{
     display:flex;
     flex-wrap:wrap;
     gap:10px
-}
-.qmc-lvs .qmc-pill{
+    }
+.qmc-lvs .qmc-storage .qmc-pill{
     display:inline-flex;
     align-items:center;
-    gap:8px;
-    padding:9px 14px;
+    justify-content:center;
+    min-width:86px;
+    height:36px;
+    padding:0 12px;
     border:1px solid #e5e7eb;
-    border-radius:999px;
+    border-radius:10px;
     background:#fff;
     text-decoration:none;
     color:#111;
-    transition:all .15s
-}
-.qmc-lvs .qmc-pill:hover{
-    box-shadow:0 1px 0 rgba(0,0,0,.06);
-    transform:translateY(-1px)
-}
-.qmc-lvs .qmc-pill.active{
+    transition:all .15s;
+    font-weight:600
+    }
+.qmc-lvs .qmc-storage .qmc-pill.active{
     background:#2563eb;
     color:#fff;
-    border-color:#2563eb
-}
-.qmc-lvs .qmc-pill.disabled{
+    border-color:#2563eb;
+    box-shadow:0 0 0 2px rgba(37,99,235,.25)
+    }
+.qmc-lvs .qmc-storage .qmc-pill.disabled{
     opacity:.45;
     pointer-events:none
-}
+    }
 .qmc-lvs .qmc-lvs-seg{
     display:flex;
     border:1px solid #e5e7eb;
     border-radius:12px;
     overflow:hidden;
-    width:max-content
-}
+    width:max-content;
+    background:#f8fafc
+    }
 .qmc-lvs .qmc-lvs-seg a{
     padding:10px 16px;
     text-decoration:none;
     color:#111;
     border-right:1px solid #e5e7eb
-}
+    }
 .qmc-lvs .qmc-lvs-seg a:last-child{
     border-right:none
-}
+    }
 .qmc-lvs .qmc-lvs-seg a.active{
     background:#2563eb;
     color:#fff
-}
+    }
 .qmc-lvs .qmc-colors{
     gap:14px
-}
+    }
 .qmc-lvs .color-card{
     width:74px;
     height:74px;
@@ -79,64 +80,55 @@
     text-decoration:none;
     color:inherit;
     transition:transform .15s, box-shadow .15s
-}
+    }
 .qmc-lvs .color-card .qmc-thumb{
-    width:64px;height:64px;
+    width:64px;
+    height:64px;
     border-radius:14px;
     overflow:hidden;
     background:#fff;
     display:flex;
     align-items:center;
-    justify-content:center
-}
+    justify-content:center;
+    box-shadow:0 0 0 3px rgba(0,0,0,0.05) inset
+    }
 .qmc-lvs .color-card img.qmc-mini{
     width:100%;
     height:100%;
     object-fit:contain
-}
+    }
 .qmc-lvs .color-card.is-active{
-    box-shadow:0 0 0 3px #111, 0 0 12px rgba(0,0,0,0.15);
+    box-shadow:0 0 0 3px var(--qmc-outline, #111), 0 0 12px var(--qmc-outline, rgba(0,0,0,0.15));
     transform:scale(1.03)
-}
+    }
 .qmc-lvs .color-card.is-disabled{
     opacity:.45;
     filter:grayscale(100%);
     pointer-events:none
-}
-.qmc-lvs .qmc-badge{
-    font-size:12px;
-    opacity:.9;
-    margin-left:4px
-}
-.qmc-lvs .qmc-oos{
-    font-size:12px;
-    margin-left:6px;
-    opacity:.8
-}
+    }
 .qmc-main-img{
     max-width:100%;
     height:auto;
     border-radius:12px
-}
+    }
 @media (max-width: 640px) {
     .qmc-lvs .qmc-lvs-seg {
         width:100%
-    }
-    .qmc-lvs .qmc-pill {
-        width:calc(50% - 10px);
-        justify-content:center
-    }
+        }
+    .qmc-lvs .qmc-storage .qmc-pill {
+        width:calc(50% - 10px)
+        }
     .qmc-lvs .qmc-colors {
         display:grid;
         grid-template-columns:repeat(2, minmax(0, 1fr));
         gap:12px
-    }
+        }
     .qmc-lvs .color-card {
         width:100%;
         height:84px
-    }
+        }
     .qmc-lvs .color-card .qmc-thumb{
         width:76px;
         height:76px
-    }
+        }
 }

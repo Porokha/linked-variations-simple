@@ -24,7 +24,10 @@
         if(!pid){ return; }
         e.preventDefault();
         var $wrap = $('.qmc-lvs').first(); $wrap.css('opacity', .6);
-        $.get(QMC_LVS.rest, { id: pid }).done(function(res){ replaceHTML(res); })
+        $.get(QMC_LVS.rest, { id: pid }).done(function(res){
+            if(res && !res.error){ replaceHTML(res); }
+            else { console.error('[QMC-LVS] REST error', res && res.error); }
+        }).fail(function(xhr){ console.error('[QMC-LVS] AJAX failed', xhr.status, xhr.responseText); })
             .always(function(){ $wrap.css('opacity', 1); });
     });
 })(jQuery);
