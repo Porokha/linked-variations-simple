@@ -8,9 +8,7 @@
             ctx.drawImage(img,0,0,w,h);
             var data = ctx.getImageData(0,0,w,h).data;
             var r=0,g=0,b=0,count=0;
-            for(var i=0;i<data.length;i+=4){
-                r+=data[i]; g+=data[i+1]; b+=data[i+2]; count++;
-            }
+            for(var i=0;i<data.length;i+=4){ r+=data[i]; g+=data[i+1]; b+=data[i+2]; count++; }
             r=Math.round(r/count); g=Math.round(g/count); b=Math.round(b/count);
             return 'rgb('+r+','+g+','+b+')';
         }catch(e){
@@ -21,15 +19,18 @@
     function enhanceSwatchOutlines(){
         $('.qmc-colors .color-card .qmc-thumb img.qmc-mini').each(function(){
             var img = this;
-            var col = pickDominant(img, getComputedStyle(img.closest('.color-card')).getPropertyValue('--qmc-outline') || '#3b82f6');
+            var current = getComputedStyle(img.closest('.color-card')).getPropertyValue('--qmc-outline') || '#3b82f6';
+            var col = pickDominant(img, current);
             img.closest('.color-card').style.setProperty('--qmc-outline', col);
         });
     }
     document.addEventListener('DOMContentLoaded', enhanceSwatchOutlines);
 
+    // Intercept clicks and AJAX switch; graceful fallback to href if REST fails
     $(document).on('click','.qmc-lvs a[data-qmc-link]',function(e){
         var $link = $(this);
         var id = parseInt($link.attr('data-product'),10);
+        var href = $link.attr('href');
         if(!id){ return; }
         e.preventDefault();
         $.ajax({
@@ -53,13 +54,11 @@
                     $('.qmc-lvs').attr('data-current-id', resp.id);
                     enhanceSwatchOutlines();
                 } catch(err){
-                    if(resp && resp.permalink){ window.location.href = resp.permalink; }
-                    else { window.location.reload(); }
+                    if(href){ window.location.href = href; } else { window.location.reload(); }
                 }
             },
             error: function(){
-                var url = $link.attr('href');
-                if(url){ window.location.href = url; } else { window.location.reload(); }
+                if(href){ window.location.href = href; } else { window.location.reload(); }
             }
         });
     });

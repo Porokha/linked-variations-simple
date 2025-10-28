@@ -4,7 +4,12 @@
  * Plugin Name: Linked Variations for Simple Products
  * Plugin URI: https://Gstore.ge
  * Description: Apple-style selectors for Color, Storage, and Condition that link between separate simple products.
- * Version: 3.1.5
+ * Version: 4.0.0
+ * Requires at least: 6.0
+ * Requires PHP: 8.2.28
+ * Tested up to: 6.8.3
+ * WC requires at least: 6.0.0
+ * WC tested up to: 10.3.3
  * Author: Porokha
  * Author URI: https://Gstore.ge
  * License: GPL2
@@ -105,6 +110,10 @@ add_filter('http_request_args', function($args, $url){
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
+/** Always load parser early to avoid class-not-found in admin-post */
+$__qmc_parser_file = __DIR__ . '/includes/parser.php';
+if ( file_exists($__qmc_parser_file) ) { require_once $__qmc_parser_file; }
+
 final class QMC_Linked_Variations_Simple {
 
 	const META_MODEL   = '_qmc_model_slug';
@@ -121,23 +130,23 @@ final class QMC_Linked_Variations_Simple {
 		add_action('admin_init', [$this,'maybe_defaults']);
 
 		// admin
-		add_action('admin_menu', [$this,'admin_menu'] );
-		add_action('admin_post_qmc_lvs_bulk_sync', [$this,'handle_bulk_sync'] );
+		add_action('admin_menu', [$this,'admin_menu']);
+		add_action('admin_post_qmc_lvs_bulk_sync', [$this,'bootstrap_then_bulk_sync']);
 
-		// frontend assets
+		// assets
 		add_action('wp_enqueue_scripts', [$this,'enqueue']);
 
-		// place selectors ABOVE buttons in summary (price ~10, excerpt 20, add-to-cart 30)
+		// render selectors ABOVE buttons in summary (excerpt 20, add-to-cart ~30)
 		add_action('woocommerce_single_product_summary', [$this,'render_selectors'], 25);
 
-		// safety relocation (if theme nests inside form)
-		add_action('wp_enqueue_scripts', function(){
+		// If the theme placed our block inside form.cart, hoist it above
+		add_action('wp_enqueue_scripts', function() {
 			if (is_product()) {
-				wp_add_inline_script('qmc-lvs-js', "document.addEventListener('DOMContentLoaded',function(){var f=document.querySelector('form.cart');var b=document.querySelector('.qmc-lvs');if(f&&b&&f.contains(b)){f.parentNode.insertBefore(b,f);}});");
+				wp_add_inline_script('qmc-lvs-js', "document.addEventListener('DOMContentLoaded',function(){var f=document.querySelector('form.cart');var b=document.querySelector('.qmc-lvs');if(f&&b&&f.parentNode){f.parentNode.insertBefore(b,f);} });");
 			}
 		});
 
-		// REST route for AJAX switch
+		// REST route for AJAX switch (stable for WC)
 		add_action('rest_api_init', function(){
 			register_rest_route('qmc-lvs/v1','/switch', [
 				'methods'  => 'GET',
@@ -152,7 +161,7 @@ final class QMC_Linked_Variations_Simple {
 		if ( ! file_exists($dir) ) {
 			wp_mkdir_p($dir);
 		}
-		self::log('activate', ['version'=> '3.1.5']);
+		self::log('activate', ['version'=> '4.0.0']);
 	}
 	public static function deactivate() {}
 
@@ -163,7 +172,7 @@ final class QMC_Linked_Variations_Simple {
 		}
 	}
 
-	/* ========== LOGGING ========== */
+	/* ================= LOGGING ================= */
 	public static function log($tag, $data = []) {
 		$base = plugin_dir_path(__FILE__) . self::LOG_DIR;
 		if ( ! file_exists($base) ) { @wp_mkdir_p($base); }
@@ -172,25 +181,14 @@ final class QMC_Linked_Variations_Simple {
 		@file_put_contents($file, $line, FILE_APPEND);
 	}
 
-	/* ========== ADMIN ========== */
+	/* ================= ADMIN ================= */
 	public function admin_menu() {
 		add_menu_page('Linked Variations','Linked Variations','manage_woocommerce','qmc-lvs',[$this,'admin_logs_page'],'dashicons-screenoptions',59);
 		add_submenu_page('qmc-lvs','Bulk Smart Sync','Bulk Smart Sync','manage_woocommerce','qmc-lvs-bulk',[$this,'bulk_page']);
 		add_submenu_page('qmc-lvs','Settings','Settings','manage_woocommerce','qmc-lvs-settings',[$this,'settings_page']);
 	}
 
-	public function admin_logs_page() {
-		echo '<div class="wrap"><h1>Linked Variations → Logs</h1>';
-		$file = plugin_dir_path(__FILE__) . self::LOG_DIR . '/' . self::LOG_FILE;
-		if ( file_exists($file) ) {
-			echo '<p><a class="button" href="'.esc_url( add_query_arg(['qmc_lvs_clear_log'=>1]) ).'">Clear log</a></p>';
-			if ( isset($_GET['qmc_lvs_clear_log']) ) { @unlink($file); echo '<div class="updated"><p>Cleared.</p></div>'; }
-			echo '<pre style="background:#111;color:#0f0;padding:12px;border-radius:6px;max-height:60vh;overflow:auto;">'. esc_html(file_get_contents($file)) .'</pre>';
-		} else {
-			echo '<p>No logs yet.</p>';
-		}
-		echo '</div>';
-	}
+	public function admin_logs_page() { include __DIR__ . '/admin/page-main.php'; }
 
 	public function settings_page() {
 		if ( ! current_user_can('manage_woocommerce') ) return;
@@ -230,12 +228,30 @@ final class QMC_Linked_Variations_Simple {
 		echo '</div>';
 	}
 
+	/** Ensure Woo + parser available, then run bulk sync */
+	public function bootstrap_then_bulk_sync() {
+		// Load Woo template functions if not present (prevents wc_* fatals)
+		if ( ! class_exists('WooCommerce') ) {
+			$wc_plugin = WP_PLUGIN_DIR . '/woocommerce/woocommerce.php';
+			if ( file_exists($wc_plugin) ) { include_once $wc_plugin; }
+		}
+		if ( defined('WC_ABSPATH') ) {
+			@include_once WC_ABSPATH . 'includes/wc-template-functions.php';
+			@include_once WC_ABSPATH . 'includes/wc-product-functions.php';
+		}
+		// Ensure parser class exists
+		if ( ! class_exists('QMC_LVS_Parser') ) {
+			$parser = __DIR__ . '/includes/parser.php';
+			if ( file_exists($parser) ) { include_once $parser; }
+		}
+		$this->handle_bulk_sync();
+	}
+
 	public function handle_bulk_sync() {
 		if ( ! current_user_can('manage_woocommerce') ) wp_die('Nope');
 		if ( ! isset($_POST['qmc_lvs_bulk_sync']) || ! wp_verify_nonce($_POST['qmc_lvs_bulk_sync'],'qmc_lvs_bulk_sync') ) wp_die('Nonce');
 		$dry = ! empty($_POST['dryrun']);
 		$cats = isset($_POST['cats']) ? array_map('intval', (array)$_POST['cats']) : [];
-		require_once __DIR__ . '/includes/parser.php';
 
 		$args = [
 			'post_type' => 'product',
@@ -254,7 +270,7 @@ final class QMC_Linked_Variations_Simple {
 		if ( $q->have_posts() ) {
 			foreach ($q->posts as $pid) {
 				$slug = get_post_field('post_name',$pid);
-				$parsed = QMC_LVS_Parser::parse_slug_flexible($slug);
+				$parsed = class_exists('QMC_LVS_Parser') ? QMC_LVS_Parser::parse_slug_flexible($slug) : ['model'=>'','storage'=>'','color'=>'','cond'=>''];
 				$existing = [
 					'model'=> get_post_meta($pid,self::META_MODEL,true),
 					'storage'=> get_post_meta($pid,self::META_STORAGE,true),
@@ -285,12 +301,12 @@ final class QMC_Linked_Variations_Simple {
 		exit;
 	}
 
-	/* ========== ASSETS ========== */
+	/* ================= ASSETS ================= */
 	public function enqueue() {
 		if ( ! is_product() ) return;
-		wp_register_style('qmc-lvs-css', plugins_url('assets/frontend.css', __FILE__), [], '3.0.4a');
+		wp_register_style('qmc-lvs-css', plugins_url('assets/frontend.css', __FILE__), [], '4.0.0');
 		wp_enqueue_style('qmc-lvs-css');
-		wp_register_script('qmc-lvs-js', plugins_url('assets/js/variation-ajax.js', __FILE__), ['jquery'], '3.0.4a', true);
+		wp_register_script('qmc-lvs-js', plugins_url('assets/js/variation-ajax.js', __FILE__), ['jquery'], '4.0.0', true);
 		wp_localize_script('qmc-lvs-js', 'QMC_LVS', [
 			'rest' => esc_url_raw( rest_url('qmc-lvs/v1/switch') ),
 			'nonce'=> wp_create_nonce('wp_rest')
@@ -298,7 +314,7 @@ final class QMC_Linked_Variations_Simple {
 		wp_enqueue_script('qmc-lvs-js');
 	}
 
-	/* ========== RENDER ========== */
+	/* ================= RENDER ================= */
 	public function render_selectors() {
 		if ( ! function_exists('wc_get_product') ) return;
 		global $product;
@@ -310,14 +326,13 @@ final class QMC_Linked_Variations_Simple {
 		$storage = get_post_meta($post_id, self::META_STORAGE, true);
 		$color   = get_post_meta($post_id, self::META_COLOR, true);
 		$cond    = get_post_meta($post_id, self::META_COND, true);
-
 		if ( empty($model) ) return;
 
 		$siblings = $this->get_siblings($model);
 		if ( empty($siblings) ) return;
 
-		// Compute option maps
-		$by_color = []; $by_storage=[]; $by_cond=[];
+		// Build option maps
+		$by_color=[]; $by_storage=[]; $by_cond=[];
 		foreach ($siblings as $sid => $s) {
 			if ($s['storage']===$storage && $s['cond']===$cond) $by_color[$s['color']]=$sid;
 			if ($s['color']===$color && $s['cond']===$cond) $by_storage[$s['storage']]=$sid;
@@ -327,7 +342,7 @@ final class QMC_Linked_Variations_Simple {
 
 		echo '<div class="qmc-lvs" data-current-id="'.esc_attr($post_id).'">';
 
-		// Condition
+		// Condition (segmented)
 		echo '<div class="qmc-lvs-group"><div class="qmc-lvs-title">Condition</div><div class="qmc-lvs-seg">';
 		foreach ($cond_list as $label) {
 			$is_current = (strcasecmp($label,$cond)===0);
@@ -338,7 +353,7 @@ final class QMC_Linked_Variations_Simple {
 		}
 		echo '</div></div>';
 
-		// Storage (Apple-style segmented)
+		// Storage (pills)
 		echo '<div class="qmc-lvs-group"><div class="qmc-lvs-title">Storage</div><div class="qmc-lvs-flex qmc-storage">';
 		if (empty($by_storage)) $by_storage[$storage]=$post_id;
 		$keys = array_keys($by_storage);
@@ -395,6 +410,13 @@ final class QMC_Linked_Variations_Simple {
 		$out = [];
 		foreach ($q->posts as $pid) {
 			$out[$pid] = [
+				'orage'=> '', // placeholder fixed later
+			];
+		}
+		// fill properly
+		$out = [];
+		foreach ($q->posts as $pid) {
+			$out[$pid] = [
 				'storage'=> get_post_meta($pid,self::META_STORAGE,true) ?: '',
 				'color'  => get_post_meta($pid,self::META_COLOR,true) ?: '',
 				'cond'   => get_post_meta($pid,self::META_COND,true) ?: '',
@@ -403,23 +425,21 @@ final class QMC_Linked_Variations_Simple {
 		return $out;
 	}
 
-	/* ========== REST: AJAX SWITCH ========== */
+	/* ================= REST: AJAX SWITCH ================= */
 	public function rest_switch_product( WP_REST_Request $request ) {
 
-		// Ensure WooCommerce env is available
+		// Ensure WooCommerce env is available (prevents wc_* fatals)
 		if ( ! class_exists('WooCommerce') ) {
 			$wc_plugin = WP_PLUGIN_DIR . '/woocommerce/woocommerce.php';
 			if ( file_exists($wc_plugin) ) { include_once $wc_plugin; }
 		}
-		if ( ! function_exists('wc_get_product') && defined('WC_ABSPATH') ) {
-			include_once WC_ABSPATH . 'includes/wc-product-functions.php';
+		if ( defined('WC_ABSPATH') ) {
+			@include_once WC_ABSPATH . 'includes/wc-template-functions.php';
+			@include_once WC_ABSPATH . 'includes/wc-product-functions.php';
 		}
-		if ( ! function_exists('wc_get_price_html') && defined('WC_ABSPATH') ) {
-			include_once WC_ABSPATH . 'includes/wc-template-functions.php';
-		}
-		if ( ! function_exists('wc_get_price_html') ) {
-			self::log('rest_switch_product_missing_wc', []);
-			return new WP_REST_Response(['error'=>'woocommerce_template_functions_unavailable'], 500);
+		if ( ! function_exists('wc_get_product') ) {
+			self::log('rest_missing_wc', []);
+			return new WP_REST_Response(['error'=>'woocommerce_unavailable'], 500);
 		}
 
 		$id = intval($request->get_param('id'));
@@ -433,7 +453,7 @@ final class QMC_Linked_Variations_Simple {
 		$payload = [
 			'id'        => $product->get_id(),
 			'title'     => $product->get_name(),
-			'price'     => wc_get_price_html($product),
+			'price'     => function_exists('wc_get_price_html') ? wc_get_price_html($product) : $product->get_price_html(),
 			'permalink' => get_permalink($product->get_id()),
 			'in_stock'  => $product->is_in_stock(),
 			'cart_id'   => $product->get_id(),
@@ -443,9 +463,6 @@ final class QMC_Linked_Variations_Simple {
 		return new WP_REST_Response($payload, 200);
 	}
 }
-
-/* ===== Admin include (parser) ===== */
-require_once __DIR__ . '/includes/parser.php';
 
 register_activation_hook(__FILE__, ['QMC_Linked_Variations_Simple','activate']);
 register_deactivation_hook(__FILE__, ['QMC_Linked_Variations_Simple','deactivate']);
