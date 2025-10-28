@@ -1,4 +1,4 @@
-/* Linked Variations nicer styling */
+/* Linked Variations styling */
 .qmc-lvs {
     margin:22px 0;
     border:1px solid #e5e7eb;
@@ -6,19 +6,11 @@
     padding:14px;
     background:#fff
 }
-.qmc-lvs .qmc-lvs-group{
-    margin-bottom:14px
-}
-.qmc-lvs .qmc-lvs-title{
-    font-weight:600;
-    margin-bottom:8px;
-    color:#111
-}
-.qmc-lvs .qmc-lvs-flex{
-    display:flex;
-    flex-wrap:wrap;
-    gap:8px
-}
+.qmc-lvs .qmc-lvs-group{ margin-bottom:14px }
+.qmc-lvs .qmc-lvs-title{ font-weight:600; margin-bottom:8px; color:#111 }
+.qmc-lvs .qmc-lvs-flex{ display:flex; flex-wrap:wrap; gap:8px }
+
+/* Pills (Storage) */
 .qmc-lvs .qmc-pill{
     display:inline-block;
     padding:8px 14px;
@@ -38,28 +30,41 @@
     color:#fff;
     border-color:#2563eb
 }
-.qmc-lvs .qmc-pill.disabled{
-    opacity:.45;
-    pointer-events:none;
-    filter:grayscale(100%)
-}
+.qmc-lvs .qmc-pill.disabled{ opacity:.45; pointer-events:none; filter:grayscale(100%) }
+
+/* Segmented (Condition) */
 .qmc-lvs .qmc-lvs-seg{
-    display:flex;
-    border:1px solid #e5e7eb;
-    border-radius:10px;
-    overflow:hidden;
-    width:max-content
+    display:flex; border:1px solid #e5e7eb; border-radius:10px; overflow:hidden; width:max-content
 }
 .qmc-lvs .qmc-lvs-seg a{
-    padding:8px 14px;
-    text-decoration:none;
-    color:#111;
-    border-right:1px solid #e5e7eb
+    padding:8px 14px; text-decoration:none; color:#111; border-right:1px solid #e5e7eb; transition:.15s
 }
-.qmc-lvs .qmc-lvs-seg a:last-child{
-    border-right:none
+.qmc-lvs .qmc-lvs-seg a:last-child{ border-right:none }
+.qmc-lvs .qmc-lvs-seg a.active{ background:#2563eb; color:#fff }
+
+/* Mini image color swatches */
+.qmc-lvs .qmc-colors .color-card{
+    width:76px; height:60px; border:1px solid #e5e7eb; border-radius:14px;
+    display:flex; align-items:center; justify-content:center; background:#fff;
+    position:relative; text-decoration:none; transition:.15s;
 }
-.qmc-lvs .qmc-lvs-seg a.active{
-    background:#2563eb;
-    color:#fff
+.qmc-lvs .qmc-colors .color-card .qmc-thumb{ display:flex; align-items:center; justify-content:center }
+.qmc-lvs .qmc-colors .color-card .qmc-mini{ max-width:54px; max-height:46px; display:block }
+
+.qmc-lvs .qmc-colors .color-card::before{
+    content:""; position:absolute; inset:-4px; border-radius:18px;
+    box-shadow:0 0 0 3px var(--qmc-outline, #e5e7eb);
+    opacity:.6; transition:.15s;
+}
+.qmc-lvs .qmc-colors .color-card.is-active::before{
+    opacity:1; box-shadow:0 0 0 3px var(--qmc-outline, #2563eb);
+}
+.qmc-lvs .qmc-colors .color-card.is-disabled{ opacity:.4; filter:grayscale(100%); pointer-events:none }
+
+/* Mobile: stack groups, color list scrolls if overflow */
+@media (max-width: 768px){
+    .qmc-lvs .qmc-lvs-flex.qmc-colors{
+        overflow-x:auto; flex-wrap:nowrap; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch
+    }
+    .qmc-lvs .qmc-colors .color-card{ scroll-snap-align:center; flex:0 0 auto }
 }
