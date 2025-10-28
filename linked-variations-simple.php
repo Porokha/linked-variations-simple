@@ -4,7 +4,7 @@
  * Plugin Name: Linked Variations for Simple Products
  * Plugin URI: https://Gstore.ge
  * Description: Apple-style selectors for Color, Storage, and Condition that link between separate simple products.
- * Version: 3.1.3
+ * Version: 3.1.4
  * Author: Porokha
  * Author URI: https://Gstore.ge
  * License: GPL2
@@ -152,7 +152,7 @@ final class QMC_Linked_Variations_Simple {
 		if ( ! file_exists($dir) ) {
 			wp_mkdir_p($dir);
 		}
-		self::log('activate', ['version'=> '3.0.4']);
+		self::log('activate', ['version'=> '3.1.4']);
 	}
 	public static function deactivate() {}
 
