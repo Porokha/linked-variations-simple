@@ -4,7 +4,7 @@
  * Plugin Name: Linked Variations for Simple Products
  * Plugin URI: https://Gstore.ge
  * Description: Apple-style selectors for Color, Storage, and Condition that link between separate simple products.
- * Version: 3.1.4
+ * Version: 3.1.5
  * Author: Porokha
  * Author URI: https://Gstore.ge
  * License: GPL2
@@ -152,7 +152,7 @@ final class QMC_Linked_Variations_Simple {
 		if ( ! file_exists($dir) ) {
 			wp_mkdir_p($dir);
 		}
-		self::log('activate', ['version'=> '3.1.4']);
+		self::log('activate', ['version'=> '3.1.5']);
 	}
 	public static function deactivate() {}
 
@@ -261,7 +261,7 @@ final class QMC_Linked_Variations_Simple {
 					'color'=> get_post_meta($pid,self::META_COLOR,true),
 					'cond'=> get_post_meta($pid,self::META_COND,true),
 				];
-				$applied = ['model'=>'','storage':'','color':'','cond':''];
+				$applied = ['model'=>'','storage'=>'','color'=>'','cond'=>''];
 				$changed = 0;
 				if ( empty($existing['model']) && ! empty($parsed['model']) ) { if(!$dry) update_post_meta($pid,self::META_MODEL,$parsed['model']); $applied['model']=$parsed['model']; $changed++; }
 				if ( empty($existing['storage']) && ! empty($parsed['storage']) ) { if(!$dry) update_post_meta($pid,self::META_STORAGE,$parsed['storage']); $applied['storage']=$parsed['storage']; $changed++; }
@@ -288,9 +288,9 @@ final class QMC_Linked_Variations_Simple {
 	/* ========== ASSETS ========== */
 	public function enqueue() {
 		if ( ! is_product() ) return;
-		wp_register_style('qmc-lvs-css', plugins_url('assets/frontend.css', __FILE__), [], '3.0.4');
+		wp_register_style('qmc-lvs-css', plugins_url('assets/frontend.css', __FILE__), [], '3.0.4a');
 		wp_enqueue_style('qmc-lvs-css');
-		wp_register_script('qmc-lvs-js', plugins_url('assets/js/variation-ajax.js', __FILE__), ['jquery'], '3.0.4', true);
+		wp_register_script('qmc-lvs-js', plugins_url('assets/js/variation-ajax.js', __FILE__), ['jquery'], '3.0.4a', true);
 		wp_localize_script('qmc-lvs-js', 'QMC_LVS', [
 			'rest' => esc_url_raw( rest_url('qmc-lvs/v1/switch') ),
 			'nonce'=> wp_create_nonce('wp_rest')

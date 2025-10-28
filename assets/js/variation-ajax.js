@@ -21,7 +21,6 @@
     function enhanceSwatchOutlines(){
         $('.qmc-colors .color-card .qmc-thumb img.qmc-mini').each(function(){
             var img = this;
-            // if cdn blocks CORS, canvas will fail and we use existing --qmc-outline
             var col = pickDominant(img, getComputedStyle(img.closest('.color-card')).getPropertyValue('--qmc-outline') || '#3b82f6');
             img.closest('.color-card').style.setProperty('--qmc-outline', col);
         });
@@ -40,22 +39,17 @@
             success: function(resp){
                 try{
                     if(!resp || resp.error){ throw new Error('resp'); }
-                    // title (Woodmart/Elementor safe)
                     var $t = $('.product_title, h1.product_title, .wd-product-title h1').first();
                     if($t.length && resp.title){ $t.text(resp.title); }
-                    // price
                     var $p = $('.summary .price, .entry-summary .price, .wd-single-price .price').first();
                     if($p.length && resp.price){ $p.html(resp.price); }
-                    // cart ids (Add to Cart + Buy Now)
                     var $form = $('form.cart').first();
                     if($form.length){
                         $form.attr('action', resp.permalink || $form.attr('action'));
                         $form.find('button[name="add-to-cart"], input[name="add-to-cart"]').val(resp.cart_id);
                         $('#wd-add-to-cart').val(resp.cart_id);
                     }
-                    // push url without scroll
                     if(resp.permalink){ window.history.replaceState({}, '', resp.permalink); }
-                    // mark current
                     $('.qmc-lvs').attr('data-current-id', resp.id);
                     enhanceSwatchOutlines();
                 } catch(err){
